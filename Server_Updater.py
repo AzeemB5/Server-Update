@@ -24,8 +24,9 @@ MAIN_SERVER_ID = 1136478773085208616    # Main server
 async def on_ready():
     print(f"✅ Bot is online as {bot.user}")
 
+# ✅ Save snapshot with custom name
 @bot.command()
-async def save(ctx):
+async def save(ctx, name: str = "default"):
     if ctx.guild.id != UPDATE_SERVER_ID:
         return await ctx.send("❌ This command can only be run in the update server.")
 
@@ -62,21 +63,24 @@ async def save(ctx):
     for emoji in guild.emojis:
         data["emojis"][str(emoji.id)] = {"name": emoji.name}
 
-    with open("sync_snapshot.json", "w") as f:
+    filename = f"sync_{name}.json"
+    with open(filename, "w") as f:
         json.dump(data, f, indent=4)
 
-    await ctx.send("✅ Snapshot saved.")
+    await ctx.send(f"✅ Snapshot saved as `{filename}`.")
 
+# ✅ Load snapshot by name
 @bot.command()
-async def load(ctx):
+async def load(ctx, name: str = "default"):
     if ctx.guild.id != MAIN_SERVER_ID:
         return await ctx.send("❌ This command can only be run in the main server.")
 
-    try:
-        with open("sync_snapshot.json", "r") as f:
-            saved_data = json.load(f)
-    except FileNotFoundError:
-        return await ctx.send("⚠️ No snapshot found. Run `!save` in the update server first.")
+    filename = f"sync_{name}.json"
+    if not os.path.exists(filename):
+        return await ctx.send(f"⚠️ Snapshot `{name}` not found. Run `!save {name}` in the update server first.")
+
+    with open(filename, "r") as f:
+        saved_data = json.load(f)
 
     guild = ctx.guild
     change_log = []
@@ -123,6 +127,20 @@ async def load(ctx):
         await ctx.send("🔄 Changes applied:\n" + "\n".join(change_log))
     else:
         await ctx.send("✅ No changes detected.")
+
+# ✅ Dynamic cog loader
+@bot.command(name="loadcog")
+@commands.has_permissions(administrator=True)
+async def loadcog(ctx, extension: str):
+    try:
+        bot.load_extension(extension)
+        await ctx.send(f"✅ Loaded cog `{extension}` successfully.")
+    except commands.ExtensionAlreadyLoaded:
+        await ctx.send(f"⚠️ Cog `{extension}` is already loaded.")
+    except commands.ExtensionNotFound:
+        await ctx.send(f"❌ Cog `{extension}` not found.")
+    except Exception as e:
+        await ctx.send(f"🚫 Error loading cog `{extension}`: {str(e)}")
 
 # ✅ Keep bot alive (Replit only)
 keep_alive()
